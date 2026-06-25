@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.DS_Store
+
+# NOTE: dist/ is intentionally NOT ignored. We ship the compiled output in the
+# repo so a git-dependency install (`bun add git+...`) needs no build step and
+# no toolchain on the consumer side. Run `bun run build` before committing/tagging.
