@@ -85,8 +85,13 @@ import { fileToAttachment, toApiContent, type Attachment } from '@hermes/gateway
 1. Bump `version` in `package.json`.
 2. `bun run build` — regenerates `dist/` (committed; consumers run no build step).
 3. Commit `dist/`, then `git tag vX.Y.Z && git push origin master --tags`.
-4. In each consuming app: `bun add github:Etschmia/hermes-gateway-client#vX.Y.Z`,
-   then rebuild the app.
+4. In each consuming app, **remove then re-add** the dep, then rebuild the app —
+   bun throws `DependencyLoop` if you `bun add` a new tag *over* the existing
+   install, so the remove is mandatory:
+   ```bash
+   bun remove @hermes/gateway-client
+   bun add github:Etschmia/hermes-gateway-client#vX.Y.Z
+   ```
 
 > **Never commit `bun.lock` or a packed `*.tgz`.** The `github:` install tarballs
 > the whole git tree, so a committed lockfile or a nested package tarball makes
@@ -106,3 +111,5 @@ bun run build      # tsc → dist/
 - `/server` — `forwardToGateway`, `gatewayConfigFromEnv` (framework-neutral proxy core).
 - `/attachments` — `fileToAttachment`, `toApiContent`, `Attachment` & co.
   (browser image-downscale + text-inlining for the composer).
+
+Consumed today by `hermes-chat` and `depot3`; built to take more.
