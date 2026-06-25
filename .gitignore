@@ -2,6 +2,13 @@ node_modules/
 *.log
 .DS_Store
 
-# NOTE: dist/ is intentionally NOT ignored. We ship the compiled output in the
-# repo so a git-dependency install (`bun add git+...`) needs no build step and
-# no toolchain on the consumer side. Run `bun run build` before committing/tagging.
+# Lockfile and packed tarballs do NOT belong in the repo: consumers install via
+# `github:Etschmia/hermes-gateway-client#vX.Y.Z`, which downloads a tarball of
+# the whole git tree. A committed bun.lock or a nested *.tgz (a copy of this
+# package) makes bun's resolver throw DependencyLoop. Keep the tree clean.
+bun.lock
+*.tgz
+
+# NOTE: dist/ is intentionally NOT ignored. We ship the compiled output so the
+# github: install needs no build step / toolchain on the consumer side.
+# Run `bun run build` before committing/tagging a release.

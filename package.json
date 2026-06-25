@@ -1,6 +1,6 @@
 {
   "name": "@hermes/gateway-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared client + server core for talking to the local Hermes OpenAI-compatible gateway.",
   "type": "module",
   "exports": {

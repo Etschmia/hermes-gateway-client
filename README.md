@@ -16,18 +16,28 @@ turns that into a controlled timeout, a typed/actionable error, and a *narrow,
 side-effect-safe* retry that never re-runs a turn that may already have fired a
 tool.
 
-## Install (git dependency, pinned by tag)
+## Install (GitHub dependency, pinned by tag)
 
 ```jsonc
 // package.json of each consumer
 "dependencies": {
-  "@hermes/gateway-client": "git+ssh://git@<host>/hermes-gateway-client#v0.1.0"
+  "@hermes/gateway-client": "github:Etschmia/hermes-gateway-client#v0.1.1"
 }
+```
+
+```bash
+bun add github:Etschmia/hermes-gateway-client#v0.1.1
 ```
 
 No registry required. Pin a tag per consumer so apps upgrade independently.
 The compiled `dist/` is committed, so the install needs no build step or
 toolchain on the consumer side.
+
+> **Why `github:` and not `git+ssh`/`git+file`?** bun 1.3.x cannot install git
+> dependencies here (its git clone fails where plain `git` succeeds), and its
+> `github:` path downloads an HTTPS tarball that only works for a **public**
+> repo. Hence: public repo + `github:` tag. Keep the tree clean (no committed
+> `bun.lock` / `*.tgz`) or bun throws `DependencyLoop`.
 
 ## Usage
 
