@@ -21,12 +21,12 @@ tool.
 ```jsonc
 // package.json of each consumer
 "dependencies": {
-  "@hermes/gateway-client": "github:Etschmia/hermes-gateway-client#v0.1.1"
+  "@hermes/gateway-client": "github:Etschmia/hermes-gateway-client#v0.2.0"
 }
 ```
 
 ```bash
-bun add github:Etschmia/hermes-gateway-client#v0.1.1
+bun add github:Etschmia/hermes-gateway-client#v0.2.0
 ```
 
 No registry required. Pin a tag per consumer so apps upgrade independently.
@@ -70,18 +70,39 @@ export async function POST(request: Request) {
 }
 ```
 
-## Develop
+### Attachments — `@hermes/gateway-client/attachments`
 
-```bash
-bun install
-bun run build      # tsc → dist/ (commit dist before tagging a release)
+Browser-only helpers for the composer: image downscale → JPEG data-URL, text
+files inlined, and `toApiContent` to build the per-message `content` (plain
+string, or OpenAI multimodal parts when images are present).
+
+```ts
+import { fileToAttachment, toApiContent, type Attachment } from '@hermes/gateway-client/attachments';
 ```
 
-Cut a release: bump `version`, `bun run build`, commit `dist/`, `git tag vX.Y.Z`,
-then bump the tag in each consumer's `package.json` and reinstall.
+## Release / Upgrade
+
+1. Bump `version` in `package.json`.
+2. `bun run build` — regenerates `dist/` (committed; consumers run no build step).
+3. Commit `dist/`, then `git tag vX.Y.Z && git push origin master --tags`.
+4. In each consuming app: `bun add github:Etschmia/hermes-gateway-client#vX.Y.Z`,
+   then rebuild the app.
+
+> **Never commit `bun.lock` or a packed `*.tgz`.** The `github:` install tarballs
+> the whole git tree, so a committed lockfile or a nested package tarball makes
+> bun throw `DependencyLoop`. Both are gitignored. `dist/` **is** committed — the
+> install runs no build step or toolchain on the consumer side.
+
+Local package development:
+
+```bash
+bun install        # dev deps (typescript only)
+bun run build      # tsc → dist/
+```
 
 ## Scope
 
-v0.1.0 covers the **chat transport** only. Attachment helpers (`toApiContent`,
-`fileToAttachment`) are still duplicated per-app and are the obvious next
-candidate to fold in under a `/browser` re-export.
+- `/browser` — `postChat`, `assistantText`, `ChatError` (the chat transport).
+- `/server` — `forwardToGateway`, `gatewayConfigFromEnv` (framework-neutral proxy core).
+- `/attachments` — `fileToAttachment`, `toApiContent`, `Attachment` & co.
+  (browser image-downscale + text-inlining for the composer).
