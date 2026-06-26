@@ -105,10 +105,32 @@ bun install        # dev deps (typescript only)
 bun run build      # tsc → dist/
 ```
 
+## Streaming (SSE)
+
+A deep agent turn can keep one blocking POST byte-silent for minutes, and an
+idle-connection timeout anywhere in the path (an HTTP/3 proxy at ~120s, the
+gateway, the client) severs it — surfacing as a bare `Failed to fetch`. The
+streaming path defeats this: the gateway emits a `: keepalive` every ~30s plus
+`hermes.tool.progress` events, so bytes never stop flowing.
+
+```ts
+// server route — pass request.signal so a client disconnect cancels the turn
+import { forwardToGatewayStream, gatewayConfigFromEnv } from '@hermes/gateway-client/server';
+if (body.stream) return forwardToGatewayStream(body.messages, gatewayConfigFromEnv(), request.signal);
+
+// browser — tokens arrive incrementally; an inactivity watchdog (not a total
+// cap) ends a genuinely dead gateway with a typed ChatError. No auto-retry.
+import { streamChat } from '@hermes/gateway-client/browser';
+const full = await streamChat(apiMessages, {
+  onDelta: (_piece, running) => setText(running),
+  onProgress: (p) => setStatus(`${p.emoji ?? ''} ${p.label ?? p.tool ?? ''}`),
+});
+```
+
 ## Scope
 
-- `/browser` — `postChat`, `assistantText`, `ChatError` (the chat transport).
-- `/server` — `forwardToGateway`, `gatewayConfigFromEnv` (framework-neutral proxy core).
+- `/browser` — `postChat`, `streamChat`, `assistantText`, `ChatError` (the chat transport).
+- `/server` — `forwardToGateway`, `forwardToGatewayStream`, `gatewayConfigFromEnv` (framework-neutral proxy core).
 - `/attachments` — `fileToAttachment`, `toApiContent`, `Attachment` & co.
   (browser image-downscale + text-inlining for the composer).
 
