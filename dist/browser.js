@@ -235,11 +235,14 @@ function parseJson(text) {
     }
 }
 /**
- * Parse one SSE event block (lines up to the blank-line separator). Handles the
- * three things the gateway emits: keepalive comments (`: …`, ignored), named
- * `hermes.tool.progress` / `hermes.error` events, and the default
- * `chat.completion.chunk` data carrying `choices[0].delta.content`. The terminal
- * `data: [DONE]` carries no text, so it naturally yields nothing.
+ * Parse one SSE event block (lines up to the blank-line separator). Handles
+ * what the gateway actually emits: keepalive comments (`: …`, ignored), the
+ * named `hermes.tool.progress` event, and default `chat.completion.chunk`
+ * data. A failed/truncated turn does NOT arrive as its own named event —
+ * the gateway folds it into the *default* finish chunk as a non-"stop"
+ * `choices[0].finish_reason` plus a top-level `error.message` (see
+ * `_write_sse_chat_completion` in api_server.py). The terminal `data:
+ * [DONE]` carries no text, so it naturally yields nothing.
  */
 function parseSseEvent(raw) {
     let event = 'message';
@@ -265,18 +268,14 @@ function parseSseEvent(raw) {
             return {};
         }
     }
-    if (event === 'hermes.error') {
-        try {
-            const o = JSON.parse(data);
-            return { errorMsg: typeof o.error === 'string' ? o.error : 'Hermes-Fehler.' };
-        }
-        catch {
-            return { errorMsg: 'Hermes-Fehler.' };
-        }
-    }
     // Default: an OpenAI-shaped streaming chunk.
     try {
         const o = JSON.parse(data);
+        const finishReason = o.choices?.[0]?.finish_reason;
+        if (finishReason && finishReason !== 'stop') {
+            const msg = o.error?.message || o.hermes?.error || 'Hermes-Fehler.';
+            return { errorMsg: msg };
+        }
         const piece = o.choices?.[0]?.delta?.content;
         if (typeof piece === 'string' && piece)
             return { delta: piece };

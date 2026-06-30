@@ -299,11 +299,14 @@ interface ParsedSse {
 }
 
 /**
- * Parse one SSE event block (lines up to the blank-line separator). Handles the
- * three things the gateway emits: keepalive comments (`: …`, ignored), named
- * `hermes.tool.progress` / `hermes.error` events, and the default
- * `chat.completion.chunk` data carrying `choices[0].delta.content`. The terminal
- * `data: [DONE]` carries no text, so it naturally yields nothing.
+ * Parse one SSE event block (lines up to the blank-line separator). Handles
+ * what the gateway actually emits: keepalive comments (`: …`, ignored), the
+ * named `hermes.tool.progress` event, and default `chat.completion.chunk`
+ * data. A failed/truncated turn does NOT arrive as its own named event —
+ * the gateway folds it into the *default* finish chunk as a non-"stop"
+ * `choices[0].finish_reason` plus a top-level `error.message` (see
+ * `_write_sse_chat_completion` in api_server.py). The terminal `data:
+ * [DONE]` carries no text, so it naturally yields nothing.
  */
 function parseSseEvent(raw: string): ParsedSse {
   let event = 'message';
@@ -320,17 +323,18 @@ function parseSseEvent(raw: string): ParsedSse {
   if (event === 'hermes.tool.progress') {
     try { return { progress: JSON.parse(data) as StreamProgress }; } catch { return {}; }
   }
-  if (event === 'hermes.error') {
-    try {
-      const o = JSON.parse(data) as { error?: unknown };
-      return { errorMsg: typeof o.error === 'string' ? o.error : 'Hermes-Fehler.' };
-    } catch {
-      return { errorMsg: 'Hermes-Fehler.' };
-    }
-  }
   // Default: an OpenAI-shaped streaming chunk.
   try {
-    const o = JSON.parse(data) as { choices?: Array<{ delta?: { content?: unknown } }> };
+    const o = JSON.parse(data) as {
+      choices?: Array<{ delta?: { content?: unknown }; finish_reason?: string | null }>;
+      error?: { message?: string };
+      hermes?: { error?: string };
+    };
+    const finishReason = o.choices?.[0]?.finish_reason;
+    if (finishReason && finishReason !== 'stop') {
+      const msg = o.error?.message || o.hermes?.error || 'Hermes-Fehler.';
+      return { errorMsg: msg };
+    }
     const piece = o.choices?.[0]?.delta?.content;
     if (typeof piece === 'string' && piece) return { delta: piece };
   } catch { /* non-JSON data line — ignore */ }
